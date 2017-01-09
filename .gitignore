@@ -90,3 +90,6 @@ ENV/
 
 # PDFs
 .pdf
+
+# Data sets
+.pkl.gz

@@ -20,7 +20,13 @@ p_1 = 1 / (1 + T.exp(-T.dot(x, w) - b))
 ```
 After the full expression graph is defined, the Theano function is compiled.
 ```python
-train = theano.function(inputs=[x, y], outputs=[prediction, xent],
+train = theano.function(inputs=[x, y],
+                        outputs=[prediction, xent],
                         updates=((w, w - 0.1 * gw), (b, b - 0.1 * gb)))
 ``` 
 Then we train the function some large number of times to tune the parameters, which are coefficients of the explanatory variables in this example.  
+
+---
+
+University of Montreal LISA Lab Theano deep learning tutorial
+http://deeplearning.net/tutorial/
