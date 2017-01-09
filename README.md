@@ -1,4 +1,4 @@
-# Python_Theano_Tutorial
+### Python Theano Tutorial
 
 This repo contains scratch code to complete the exercises in the Python Theano basic tutorial at http://deeplearning.net/software/theano/tutorial/index.html#.
 The basic tutorial includes examples for derivatives, conditions, and loops.  But importantly it also covers shared variables and the paradigm for using Theano.
