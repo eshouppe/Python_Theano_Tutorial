@@ -15,17 +15,17 @@ class DataProcessing(object):
         digits.  Each set is a list of pairs of images and class labels.  Each image is a 1d
         ndarray of (28 x 28) 784.  Labels are between 0 and 9 inclusively."""
 
-        with gzip.open(self.filepath, 'r') as f:
-            training_set, validation_set, testing_set = pickle.load(f)
-        
-        train_x, train_y = self.store_into_shared_vars(train_set)
-        valid_x, valid_y = self.store_into_shared_vars(valid_set)
-        test_x, test_y = self.store_into_shared_vars(test_set)
+        with gzip.open(self.filepath, 'r') as infile:
+            training_set, validation_set, testing_set = pickle.load(infile)
 
-        return train_x, train_y, valid_x, valid_y, test_x, test_y
+        training_x, training_y = self.store_into_shared_vars(training_set)
+        validation_x, validation_y = self.store_into_shared_vars(validation_set)
+        testing_x, testing_y = self.store_into_shared_vars(testing_set)
+
+        return training_x, training_y, validation_x, validation_y, testing_x, testing_y
 
 
-    def store_into_shared_vars(data_xy):
+    def store_into_shared_vars(self, data_xy):
         """Store datasets into shared variables that will be accessed in minibatches so
         Theano can copy whole dataset to the GPU.  The minibatch is a slice of that shared
         variable.  The minibatch is indicated by its index and size.
@@ -48,20 +48,20 @@ class LogisticRegression(object):
         minibatch is described by input, which is of type theano.tensor.TensorType"""
 
         # Weight matrix W. Column-k represents the separation hyperplane for class-k
-        self.W = theano.shared(value=np.zeros((n_in, n_out), dtype=theano.config.floatX),
-                               name='W', borrow=True)
+        self.W_matrix = theano.shared(value=np.zeros((n_in, n_out), dtype=theano.config.floatX),
+                                      name='W', borrow=True)
         # Bias vector b.  Element-k represents the free parameter of hyperplane-k
-        self.b = theano.shared(value=np.zeros((n_out), dtype=theano.config.floatX),
-                               name='b', borrow=True)
+        self.b_vector = theano.shared(value=np.zeros((n_out), dtype=theano.config.floatX),
+                                      name='b', borrow=True)
 
         # Symbolic expression for computing class membership probabilities
         # X is a matrix where row-j represents input training sample-j
-        self.p_y_given_x = T.nnet.softmax(T.dot(input_minibatch, self.W) + self.b)
+        self.p_y_given_x = T.nnet.softmax(T.dot(input_minibatch, self.W_matrix) + self.b_vector)
         # Symbolic description of how to compute predicted class
         self.y_pred = T.argmax(self.p_y_given_x, axis=1)
 
         # Model parameters
-        self.params = [self.W, self.b]
+        self.params = [self.W_matrix, self.b_vector]
 
         # Model input
         self.input_minibatch = input_minibatch
@@ -90,25 +90,43 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
+    def train_model(self, learning_rate, cost, batch_size):
+        """Gradient descent functions update a parameter set by making small (how small
+        determined by learning rate) changes to parameter values that are the gradient
+        of a loss function wrt the current parameter values. In stochastic gradient
+        descent the update is often performed after each example so the estimate is
+        made on a few examples at a time.  In minibatch SGD small batches of training
+        examples are used, which reduces variance in the estimate."""
+        
+        gradient_loss_wrt_W = T.grad(cost=cost, wrt=self.W_matrix)
+        gradient_loss_wrt_b = T.grad(cost=cost, wrt=self.b_vector)
+
+        updates = [(self.W_matrix, self.W_matrix - learning_rate*gradient_loss_wrt_W),
+                   (self.W_matrix, self.W_matrix - learning_rate*gradient_loss_wrt_W)]
+
+        givens = pass
+
+        train_model = theano.function(
+            inputs = [index],
+            outputs = cost,
+            updates = updates,
+            givens = givens
+        )
+    
+        for (x_batch, y_batch) in train_batches:
+            print 'Current loss is: ', msgd(x_batch, y_batch)
+            if stopping_condition_met:
+                return theta
+
+
+data1 = DataProcessing('mnist.pkl.gz')
+train_x, train_y, valid_x, valid_y, test_x, test_y = data1.load_data()
+
+log_reg = LogisticRegression(input_minibatch=train_x, n_in=28*28, n_out=10)
+nll_cost = log_reg.negative_log_likelihood(y=train_y)
+output = log_reg.train_model(learning_rate=epsilon, cost=nll_cost, batch_size=500)
+
 #######################################################################
-train_set, valid_set, test_set = load_data('mnist.pkl.gz')
-BATCH_SIZE = 500
-
-# Gradient descent functions update a parameter set by making small (how small
-#  determined by learning rate) changes to parameter values that are the derivative
-#  (the gradient) of a loss function wrt the current parameter values. In stochastic
-#  gradient descent the update is often performed after each example so the estimate
-#  is made on a few examples at a time.  In minibatch SGD small batches of training
-#  examples are used, which reduces variance in the estimate.
-def minibatch_stoch_grad_dscnt():
-    gradient_loss_wrt_theta = T.grad(loss, theta)
-    updates = [(theta, theta - learning_rate * gradient_loss_wrt_theta)]
-    msgd = theano.function([x_batch, y_batch], loss, updates=updates)
-
-    for (x_batch, y_batch) in train_batches:
-        print 'Current loss is: ', msgd(x_batch, y_batch)
-        if stopping_condition_met:
-            return theta
 
 # L1 and L2 regularization combat overfitting on training examples by adding
 #  a term to the loss function that penalizes certain parameter selections.
